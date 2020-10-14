@@ -1,67 +1,72 @@
 import numpy as np
 from numpy import shape, transpose, array, matrix
 import matplotlib.pyplot as plt
-import scipy.optimize as opt
 import torch
+from tqdm import tqdm
 
 class GaussianProcess:
-    def __init__(self, covar_func, training_data=None, labels=None, sigma=0, mean_func=None):
+    def __init__(self, covar_kernel, training_data=None, labels=None, sigma=0, mean_func=None):
         self.training_data = training_data
         self.labels = labels
         self.mean_func = mean_func
-        self.covar_func = covar_func
+        self.covar_kernel = covar_kernel
         self.sigma = sigma
+        self.lr = 1e-2  # Learning rate for marginal likelihood gradient descent
         self.updated = False  # Up to date inverse co-variance stored?
         if training_data is not None:
             self._update()
 
     def compute_covariance(self, X1, X2):
-        covar_matrix = np.zeros([len(X1), len(X2)])
+        covar_matrix = torch.zeros([len(X1), len(X2)])
         for i, element in enumerate(X1):
             for j, element2 in enumerate(X2):
-                covar_matrix[i][j] = self.covar_func(element, element2)
+                covar_matrix[i][j] = self.covar_kernel(element, element2)
         return covar_matrix
 
     def _update(self, verbose=False):
         """Update stored covariance/inverse as hyper-params/data changes for computational saving."""
         covar_matrix = self.compute_covariance(self.training_data, self.training_data)
-        self.covar_matrix = covar_matrix + np.identity(len(self.training_data)) * self.sigma ** 2
-        condition_number = np.linalg.cond(self.covar_matrix)
+        self.covar_matrix = covar_matrix + torch.eye(len(self.training_data)) * self.sigma ** 2
+        condition_number = np.linalg.cond(self.covar_matrix.detach().numpy())
         if verbose or condition_number > 10e10:
             print(f"Condition number : {condition_number}")
-        self.inv_cov = np.linalg.inv(self.covar_matrix)
+        self.inv_cov = torch.inverse(self.covar_matrix)
         self.updated = True
 
-    def compute_nll(self):
-        if self.inv_cov is None or not self.updated:
-            self._update(verbose=False)
-        term1 = -0.5 * np.dot(transpose(self.labels), np.dot(self.inv_cov, self.labels))
-        _, log_det = np.linalg.slogdet(self.covar_matrix)
+    def compute_nll(self, verbose=False):
+        self._update(verbose)
+        term1 = -0.5 * torch.dot(self.labels, torch.mv(self.inv_cov, self.labels))
+        _, log_det = torch.slogdet(self.covar_matrix)
         return -1*(term1 - 0.5 * log_det - (len(self.training_data) / 2) * 2 * np.pi)
 
-    def optimise_hyperparameters(self, initial_hyper_params=None):
-        result = opt.minimize(self.compute_nll, initial_hyper_params)
-        self.hyper_params = result.x
-        covar_matrix = self.compute_covariance(self.training_data, self.training_data)
-        self.covar_matrix = covar_matrix + np.identity(len(self.training_data)) * self.sigma ** 2
-        self.inv_cov = np.linalg.inv(self.covar_matrix)
+    def optimise_hyperparams(self, epochs=10):
+        """Optimise hyper-parameters via gradient descent of the marginal likelihood."""
+        print(self.covar_kernel.hyperparams)
+        optimizer = torch.optim.Adam(self.covar_kernel.hyperparams, lr=self.lr)
+        for _ in tqdm(range(epochs)):
+            optimizer.zero_grad()
+            loss = self.compute_nll(verbose=False)
+            loss.backward()
+            if not (epochs % (epochs//10)):
+                tqdm.write(f"Hyper-parameters: {self.covar_kernel.hyperparams}")
+                tqdm.write(f"Negative log-likelihood : {loss}")
+            optimizer.step()
 
     def compute_predictive_means_vars(self, test_data):
         KxX = self.compute_covariance(test_data, self.training_data)
         if self.inv_cov is None or not self.updated:
             self._update(verbose=True)
-        mu_array = np.dot(KxX, np.dot(self.inv_cov, self.labels))
-        KXx = np.transpose(KxX)
-        product1 = np.dot(self.inv_cov, KXx)
-        product2 = np.dot(KxX, product1)
-        autocov = self.covar_func(test_data, test_data)
-        var_array = autocov - product2
-        return mu_array, var_array
+        product1 = torch.mm(KxX, self.inv_cov)
+        mu_array = torch.mv(product1, self.labels)
+        product2 = torch.mm(product1, torch.transpose(KxX, 0, 1))
+        autocovariance = self.covar_kernel(test_data, test_data)
+        var_array = autocovariance - product2
+        return mu_array.detach().numpy(), var_array.detach().numpy()
 
     def plot_predictive(self, test_data):
         mu_array, var_array = self.compute_predictive_means(test_data)
-        x_data = np.array(test_data)
-        plt.scatter(np.array(self.training_data), np.array(self.labels), s=4)
+        x_data = test_data.numpy()
+        plt.scatter(self.training_data.numpy(), self.labels.numpy(), s=4)
         plt.scatter(x_data, mu_array, color='green', s=4)
         samples = []
         for _ in range(100):

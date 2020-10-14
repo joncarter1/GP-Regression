@@ -25,9 +25,12 @@ def null_covariance(x1, x2):
 
 
 class CovarianceKernel:
-    def __init__(self, hyperparams, covariance_function=None):
-        self.hyperparams = hyperparams
-        self.covariance_function = null_covariance if covariance_function is None else covariance_function
+    def __init__(self, hyperparams, covariance_function=lambda x: NotImplementedError):
+        if not isinstance(hyperparams, list):
+            self.hyperparams = [hyperparams]
+        else:
+            self.hyperparams = hyperparams
+        self.covariance_function = covariance_function
 
     def __call__(self, x1, x2):
         """Call to kernel function"""
@@ -35,13 +38,13 @@ class CovarianceKernel:
 
     def __add__(self, other_kernel):
         """Kernel addition"""
-        combined_hyperparams = torch.cat((self.hyperparams, other_kernel.hyperparams))
+        combined_hyperparams = self.hyperparams + other_kernel.hyperparams
         new_covariance_function = lambda *x: self.covariance_function(*x) + other_kernel.covariance_function(*x)
         return CovarianceKernel(combined_hyperparams, new_covariance_function)
 
     def __mul__(self, other_kernel):
         """Kernel multiplication"""
-        combined_hyperparams = torch.cat((self.hyperparams, other_kernel.hyperparams))
+        combined_hyperparams = self.hyperparams + other_kernel.hyperparams
         new_covariance_function = lambda *x: self(*x) * other_kernel(*x)
         return CovarianceKernel(combined_hyperparams, new_covariance_function)
 
@@ -54,7 +57,7 @@ class PeriodicKernel(CovarianceKernel):
         super().__init__(hyperparams)
 
         def periodic_covariance(x1, x2):
-            v_scale, period, l_scale = self.hyperparams  # Un-packing sinusoidal hyper-parameters
+            l_scale, v_scale, period = self.hyperparams[0]  # Un-packing sinusoidal hyper-parameters
             return (v_scale ** 2) * torch.exp(-2 * (torch.sin((pi / period) * torch.norm(x1 - x2)) ** 2) / (l_scale ** 2))
 
         self.covariance_function = periodic_covariance
@@ -65,7 +68,7 @@ class IsoSQEKernel(CovarianceKernel):
         super().__init__(hyperparams)
 
         def iso_sqe_covariance(x1, x2):
-            l_scale, v_scale = self.hyperparams
+            l_scale, v_scale = self.hyperparams[0]
             return (v_scale ** 2) * torch.exp(-(torch.norm(x1 - x2) ** 2) / (2 * l_scale ** 2))
 
         self.covariance_function = iso_sqe_covariance
