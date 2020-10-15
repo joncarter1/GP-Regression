@@ -12,7 +12,9 @@ def exp_covar_generator(s, l):
         return (s ** 2) * np.exp(-(np.linalg.norm(x1 - x2) ** 2) / (2 * l ** 2))
     return covariance_func
 
+
 exp_covar = exp_covar_generator(1, 50)
+
 
 if __name__ == "__main__":
     data = pd.read_csv('sotonmet.txt')
