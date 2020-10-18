@@ -19,7 +19,7 @@ if __name__ == "__main__":
     train_times = torch.linspace(0, 10, 11, requires_grad=False)
     results = torch.sin(train_times)
 
-    gp1 = GaussianProcess(covar_kernel=iso, sigma_n=0.5, training_data=train_times, labels=results)
+    gp1 = GaussianProcess(covar_kernel=iso, sigma_n=0.1, training_data=train_times, labels=results)
     test_times = torch.linspace(-5, 15, 100)
 
     test_means, test_vars = gp1.compute_predictive_means_vars(test_times)
@@ -31,4 +31,4 @@ if __name__ == "__main__":
                      alpha=0.3, color="tab:blue")
     plt.show()
 
-    #gp1.optimise_hyperparams(250)
+    print(gp1.compute_marginal_nll())

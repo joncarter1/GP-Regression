@@ -1,48 +1,13 @@
 import numpy as np
 import torch
-
-
-def compute_distance_matrix(x1, x2):
-    """
-    Args:
-        x1 (m x d) PyTorch tensor: Input data matrix
-        x2 (n x d) PyTorch tensor: Input data matrix
-
-    Returns:
-        (m x n) PyTorch tensor: Pair-wise squared Euclidean distances
-    """
-    m, n, d = x1.size(0), x2.size(0), x2.size(1)
-    x1 = x1.unsqueeze(1).expand(m, n, d)
-    x2 = x2.unsqueeze(0).expand(m, n, d)
-    return torch.pow(x1 - x2, 2).sum(2)
-
-
-def add_noise(signal_array, sigma):
-    noise_vector = np.random.normal(0, sigma, size=np.shape(signal_array))
-    return signal_array + noise_vector
-
-
-def exp_covar_generator(s, l):
-    """Generate sinusoidal covariance function
-    """
-    def covariance_func(x1, x2):
-        return (s ** 2) * np.exp(-(np.linalg.norm(x1 - x2) ** 2) / (2 * l ** 2))
-    return covariance_func
-
-
-def sinusoidal_covar_generator(s, l, p):
-    """Generate sinusoidal covariance function"""
-    def covariance_func(x1, x2):
-        return (s ** 2) * np.exp(-2 * (np.sin((np.pi / p) * np.linalg.norm(x1 - x2)) ** 2) / (l ** 2))
-    return covariance_func
-
+from utils import expand_1d, compute_distance_matrix
 
 class CovarianceKernel:
     def __init__(self, hyperparams, covariance_function=None):
         """
         Args:
-            hyperparams: Kernel hyper-params
-            covariance_function: Kernel co-variance function (if composite i.e. not already specified in sub-class)
+            hyperparams: Kernel hyper-params (either a list or PyTorch tensor)
+            covariance_function: Kernel co-variance function (if composite i.e. not already specified by sub-class)
         """
         if not isinstance(hyperparams, list):
             self.hyperparams = [hyperparams]
@@ -57,7 +22,7 @@ class CovarianceKernel:
     def __call__(self, x1: torch.Tensor, x2: torch.Tensor):
         """Call to kernel function
         """
-        x1, x2 = expand_1D([x1, x2])
+        x1, x2 = expand_1d([x1, x2])
         return self.covariance_function(x1, x2)
 
     def __repr__(self):
@@ -80,12 +45,6 @@ class CovarianceKernel:
 
 
 pi = torch.tensor(np.pi)
-
-
-def expand_1D(tensor_list):
-    """Expand any 1D tensors in a list of tensors to 2D"""
-    expand_func = lambda x : x.view(-1, 1) if len(x.size()) <= 1 else x
-    return [expand_func(tensor) for tensor in tensor_list]
 
 
 class IsoSQEKernel(CovarianceKernel):
@@ -145,9 +104,9 @@ class QuadraticKernel(CovarianceKernel):
         self.alpha = alpha
 
         def quadratic_covariance(x1, x2):
-            l_scale, v_scale = self.hyperparams[0].exp()
+            l_scale, v_scale, alpha = self.hyperparams[0].exp()
             squared_distance_matrix = compute_distance_matrix(x1, x2)
-            return (v_scale**2) * (1 + squared_distance_matrix / (2*self.alpha*l_scale**2))**(-self.alpha)
+            return (v_scale**2) * (1 + squared_distance_matrix / (2*alpha*l_scale**2))**(-alpha)
         self.covariance_function = quadratic_covariance
 
 
