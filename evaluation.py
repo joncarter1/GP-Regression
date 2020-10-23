@@ -16,14 +16,14 @@ def compute_gp_performance(gp, jitter=0):
     """
 
     # Get predictive distribution over test points
-    test_means, test_vars = gp.compute_predictive_means_vars(scaled_all_reading_times, jitter=jitter, to_np=False)
+    test_means, test_vars = gp.compute_predictive_means_vars(scaled_all_reading_times, jitter=jitter, to_np=True)
     # Un-normalise means and covariances back to metres
     test_predictions = iht(test_means)
-    test_covariance = (tide_std ** 2) * test_vars
+    test_covariance = (tide_std.cpu() ** 2) * test_vars
     print("covar")
     # Compute NLL for all test points and missing points
-    test_nll = gaussian_nll(torch.tensor(true_tide_heights), test_predictions,
-                               test_covariance, jitter=jitter) / len(true_tide_heights)
+    test_nll = gaussian_nll(torch.tensor(true_tide_heights), torch.tensor(test_predictions),
+                               torch.tensor(test_covariance), jitter=jitter) / len(true_tide_heights)
     print("2")
     # Computing RMSEs in metres
     test_rmse = np.mean((true_tide_heights - test_predictions.cpu().numpy()) ** 2) ** 0.5
