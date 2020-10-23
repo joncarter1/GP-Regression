@@ -35,8 +35,6 @@ def gaussian_nll(y, mu, covar_matrix, dims=1, jitter=1e-4, verbose=False):
 
     """
     y, mu = expand_1d([y, mu])
-    print(y.device, mu.device)
-    print(covar_matrix.device)
     covar_matrix += (torch.tensor(jitter) ** 2) * torch.eye(*covar_matrix.shape)
     condition_number = np.linalg.cond(covar_matrix.detach().cpu().numpy())
     if condition_number > 1e10:

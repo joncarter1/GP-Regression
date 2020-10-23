@@ -20,11 +20,9 @@ def compute_gp_performance(gp, jitter=0):
     # Un-normalise means and covariances back to metres
     test_predictions = iht(test_means)
     test_covariance = (tide_std.cpu() ** 2) * test_vars
-    print("covar")
     # Compute NLL for all test points and missing points
     test_nll = gaussian_nll(torch.tensor(true_tide_heights), torch.tensor(test_predictions),
                                torch.tensor(test_covariance, device=dev), jitter=jitter) / len(true_tide_heights)
-    print("2")
     # Computing RMSEs in metres
     test_rmse = np.mean((true_tide_heights - test_predictions) ** 2) ** 0.5
 
@@ -55,10 +53,10 @@ def gp_inference(covar_kernel, epochs=250, sigma_n=0.1, jitter=0, lr=1e-3):
     # Sample GP in range +/-40% of data
     sample_times = torch.linspace(-0.4 * torch.max(scaled_reading_times), 1.4 * torch.max(scaled_reading_times), 1000)
     # Sample times converted back to timestamps
-    transformed_times = itt(sample_times)
+    transformed_times = itt(sample_times.cpu())
     # Converting distribution back to metres
     sample_means, sample_vars = gp.compute_predictive_means_vars(sample_times, jitter=jitter)
-    sample_means, sample_vars = iht(sample_means), (tide_std ** 2)*sample_vars
+    sample_means, sample_vars = iht(sample_means), (tide_std.cpu() ** 2)*sample_vars
     # Diagonal covariance for uncertainty plots.
     sigma_vector = np.diag(sample_vars) ** 0.5
 
