@@ -92,7 +92,6 @@ class GaussianProcess:
 
         if training_data.nelement():
             covar_matrix = self.compute_covariance_matrix(training_data, jitter)
-            print("formed cov")
             condition_number = np.linalg.cond(covar_matrix.detach().cpu().numpy())
             if condition_number > 1e10:
                 print(f"Condition number : {condition_number}")
