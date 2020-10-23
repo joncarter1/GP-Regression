@@ -1,9 +1,7 @@
 import numpy as np
-from numpy import shape, transpose, array, matrix
-import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
-from utils import gaussian_nll
+from GPy2.utils import gaussian_nll
 
 
 class GaussianProcess:

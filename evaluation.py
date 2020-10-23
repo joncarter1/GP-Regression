@@ -1,9 +1,11 @@
 from data import reading_times, scaled_reading_times, tide_heights, tide_std, scaled_all_reading_times, scaled_tide_heights,\
-     itt, iht, true_tide_heights, scaled_true_heights, all_reading_times
+     itt, iht, true_tide_heights, all_reading_times
 import numpy as np
 import torch
-from models import GaussianProcess
+from GPy2.models import GaussianProcess
+from GPy2.utils import gaussian_nll
 import matplotlib.pyplot as plt
+
 
 def compute_gp_performance(gp, jitter=0):
     """Compute performance metrics of a given GP on the data set.

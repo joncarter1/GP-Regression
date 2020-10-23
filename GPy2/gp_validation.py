@@ -1,9 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numpy import shape, transpose, array, matrix
-from kernels import IsoSQEKernel, PeriodicKernel, Matern12Kernel, Matern32Kernel
-from models import GaussianProcess
-import pandas as pd
+from GPy2.kernels import IsoSQEKernel, PeriodicKernel, Matern12Kernel, Matern32Kernel
+from GPy2.models import GaussianProcess
 import torch
 
 l_scale, v_scale = 1.0, 1.0

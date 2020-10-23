@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from utils import expand_1d, compute_distance_matrix
+from GPy2.utils import expand_1d, compute_distance_matrix
 
 
 class CovarianceKernel:
