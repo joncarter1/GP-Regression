@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+cpu = torch.device("cpu")
+dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
 def compute_distance_matrix(x1, x2):
@@ -32,7 +34,7 @@ def gaussian_nll(y, mu, covar_matrix, dims=1, jitter=1e-4, verbose=False):
 
     """
     y, mu = expand_1d([y, mu])
-    covar_matrix += (jitter ** 2) * torch.eye(*covar_matrix.shape)
+    covar_matrix += (jitter ** 2) * torch.eye(*covar_matrix.shape, device=dev)
     condition_number = np.linalg.cond(covar_matrix.detach().numpy())
     if condition_number > 1e10:
         print(f"Condition number : {condition_number}")

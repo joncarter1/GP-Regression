@@ -1,8 +1,6 @@
 import numpy as np
 import torch
-from GPy2.utils import expand_1d, compute_distance_matrix
-cpu = torch.device("cpu")
-dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+from GPy2.utils import expand_1d, compute_distance_matrix, cpu, dev
 
 class CovarianceKernel:
     """Co-variance kernel used for Gaussian Processes."""

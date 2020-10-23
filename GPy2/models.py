@@ -1,9 +1,7 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-from GPy2.utils import gaussian_nll
-cpu = torch.device("cpu")
-dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+from GPy2.utils import gaussian_nll, dev, cpu
 
 
 class GaussianProcess:
