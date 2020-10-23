@@ -70,4 +70,4 @@ def iht(scaled_tide_reading):
     Args:
         scaled_tide_reading: Vector or tensor of scaled tide heights, normalised to training data mean and variance.
     """
-    return scaled_tide_reading * tide_std.cpu() + tide_mean.cpu()
+    return scaled_tide_reading * tide_std + tide_mean
