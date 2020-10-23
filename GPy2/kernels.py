@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 from GPy2.utils import expand_1d, compute_distance_matrix
-
+cpu = torch.device("cpu")
+dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 class CovarianceKernel:
     """Co-variance kernel used for Gaussian Processes."""
@@ -11,8 +12,17 @@ class CovarianceKernel:
             hyperparams: Kernel hyper-params (either a list or PyTorch tensor)
             covariance_function: Kernel co-variance function (if composite i.e. not already specified by sub-class)
         """
-        self.hyperparams = hyperparams if isinstance(hyperparams, list) else [hyperparams]
+
+        if isinstance(hyperparams, list):
+            self.hyperparams = hyperparams
+        else:
+            hyperparams.to(dev)
+            self.hyperparams = [hyperparams]
         self.covariance_function = covariance_function
+
+    @property
+    def get_hyperparams(self):
+        return self.hyperparams.to(cpu)
 
     def __call__(self, x1: torch.Tensor, x2: torch.Tensor):
         """Call to kernel function, returns covariance matrix between inputs x1 and x2"""

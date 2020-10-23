@@ -3,7 +3,6 @@ import pandas as pd
 import datetime
 import torch
 import numpy as np
-
 weather_data = pd.read_csv('sotonmet.txt')
 cols = weather_data.columns
 

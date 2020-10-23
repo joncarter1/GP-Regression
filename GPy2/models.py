@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from GPy2.utils import gaussian_nll
+cpu = torch.device("cpu")
+dev = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
 class GaussianProcess:
@@ -15,10 +17,13 @@ class GaussianProcess:
                  mean_func=None):
         self.training_data = training_data
         self.labels = labels
+        self.training_data.to(dev)
+        self.labels.to(dev)
         self.mean_func = mean_func
         self.covar_kernel = covar_kernel
         self.learn_noise = learn_noise
         self.log_sigma = torch.tensor(np.log(sigma_n), requires_grad=learn_noise)
+        self.log_sigma.to(dev)
         self.trainable_parameters = self.covar_kernel.hyperparams+[self.log_sigma]
         self.lr = lr  # Learning rate for marginal likelihood gradient descent
         self.ill_conditioned = False
@@ -45,7 +50,7 @@ class GaussianProcess:
     def compute_marginal_nll(self, verbose=False):
         """Compute negative log-likelihood of data under zero-mean multivariate Gaussian."""
         covar_matrix = self.compute_covariance_matrix(self.training_data)
-        return gaussian_nll(self.labels, torch.tensor(0), covar_matrix, verbose)
+        return gaussian_nll(self.labels, torch.tensor(0, device=dev), covar_matrix, verbose)
 
     def optimise_hyperparams(self, epochs=10, lr=None):
         """Optimise hyper-parameters via gradient descent of the marginal likelihood.
