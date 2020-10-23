@@ -5,7 +5,7 @@ import torch
 import numpy as np
 weather_data = pd.read_csv('sotonmet.txt')
 cols = weather_data.columns
-
+import GPy2.utils
 
 def date_conversion(date_string):
     """Convert Sotonmet string timestamp to Datetime object."""
