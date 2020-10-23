@@ -69,7 +69,6 @@ class IsoSQEKernel(CovarianceKernel):
         def iso_sqe_covariance(x1, x2):
             l_scale, v_scale = self.hyperparams[0].exp()  # Un-packing (log) hyper-parameters
             squared_distance_matrix = compute_distance_matrix(x1, x2)
-            print(l_scale.device, v_scale.device, squared_distance_matrix.device)
             return (v_scale ** 2) * torch.exp(-squared_distance_matrix / (2 * l_scale ** 2))
 
         self.covariance_function = iso_sqe_covariance
