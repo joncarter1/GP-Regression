@@ -73,30 +73,34 @@ class GaussianProcess:
             print(f"New noise std : {self.sigma}")
         print(f"Negative log-likelihood : {loss}")
 
-    def compute_predictive_means_vars(self, test_data, training_data=None, labels=None, jitter=1e-4, to_np=True):
+    def compute_predictive_means_vars(self, test_data, training_data="stored", labels="stored", jitter=1e-4, to_np=True):
         """Compute predictive mean and variance over a set of test points.
 
         Args:
             test_data: Tensor of test points in time series.
-            training_data: Used to condition GP, uses stored data if none provided.
-            labels: Used to condition GP, uses stored labels if none provided.
+            training_data: Used to condition GP, uses stored if None.
+            labels: Used to condition GP, uses stored labels if None.
             jitter: Noise added to co-variance matrix diagonal for stability.
             to_np: If casting result to Numpy array.
         """
-        if training_data is None:
-            training_data = self.training_data  # Use all provided (non-causal)
-        if labels is None:
+        if training_data == "stored":
+            training_data = self.training_data  # Use all provided
             labels = self.labels
-        covar_matrix = self.compute_covariance_matrix(training_data, jitter)
-        condition_number = np.linalg.cond(covar_matrix.detach().numpy())
-        if condition_number > 1e10:
-            print(f"Condition number : {condition_number}")
-        L_covar = torch.cholesky(covar_matrix)
-        inv_covar = torch.cholesky_inverse(L_covar)
-        KxX = self.covar_kernel(test_data, training_data)
-        product1 = torch.mm(KxX, inv_covar)
-        mu_array = torch.mv(product1, labels)
-        product2 = torch.mm(product1, torch.transpose(KxX, 0, 1))
+
+        if training_data.nelement():
+            covar_matrix = self.compute_covariance_matrix(training_data, jitter)
+            condition_number = np.linalg.cond(covar_matrix.detach().numpy())
+            if condition_number > 1e10:
+                print(f"Condition number : {condition_number}")
+            L_covar = torch.cholesky(covar_matrix)
+            inv_covar = torch.cholesky_inverse(L_covar)
+            KxX = self.covar_kernel(test_data, training_data)
+            product1 = torch.mm(KxX, inv_covar)
+            mu_array = torch.mv(product1, labels)
+            product2 = torch.mm(product1, torch.transpose(KxX, 0, 1))
+        else:
+            product2 = 0  # No conditioning of co-variance matrix
+            mu_array = torch.tensor([0])  # Zero-mean prior
         auto_cov = self.covar_kernel(test_data, test_data)
         var_array = auto_cov - product2
         if not to_np:
@@ -120,7 +124,7 @@ class LookaheadGP(GaussianProcess):
         """
 
         mus, sigmas = torch.tensor([]), torch.tensor([])
-        for t in test_data:
+        for t in tqdm(test_data):
             lookahead_training_data = self.training_data[self.training_data <= t - lookahead]
             lookahead_labels = self.labels[self.training_data <= t - lookahead]
             mu, sigma = self.compute_predictive_means_vars(t, lookahead_training_data, lookahead_labels,
