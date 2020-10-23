@@ -23,7 +23,7 @@ def compute_gp_performance(gp, jitter=0):
     test_covariance = (tide_std ** 2) * test_vars
     # Compute NLL for all test points and missing points
     test_nll = gaussian_nll(torch.tensor(true_tide_heights), torch.tensor(test_predictions),
-                               test_covariance, jitter=jitter) / len(true_tide_heights)
+                               torch.tensor(test_covariance), jitter=jitter) / len(true_tide_heights)
     print("2")
     # Computing RMSEs in metres
     test_rmse = np.mean((true_tide_heights - test_predictions) ** 2) ** 0.5
