@@ -74,7 +74,7 @@ def gp_inference(covar_kernel, epochs=250, sigma_n=0.1, jitter=0, lr=1e-3):
         else:
             plt.plot(transformed_times, function_draw, "--", lw=0.5, color="red")
 
-    plt.scatter(reading_times, tide_heights, s=10, marker="x", label="Training data", color="black")
+    plt.scatter(reading_times, tide_heights.cpu(), s=10, marker="x", label="Training data", color="black")
 
     alphas = [0.4, 0.3, 0.1]
     for i in range(3):
@@ -83,6 +83,7 @@ def gp_inference(covar_kernel, epochs=250, sigma_n=0.1, jitter=0, lr=1e-3):
                          sample_means + (i + 1) * sigma_vector,
                          alpha=alphas[i], color="tab:blue", label=fr"GP Uncertainty - ${i + 1}\sigma$")
 
+    print("HEREE")
     plt.ylabel("Tide height / m", fontsize=14)
     plt.xlabel("Timestamp / days", fontsize=14)
     bottom, top = plt.ylim()
