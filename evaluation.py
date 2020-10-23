@@ -17,10 +17,6 @@ def compute_gp_performance(gp, jitter=0):
 
     # Get predictive distribution over test points
     test_means, test_vars = gp.compute_predictive_means_vars(scaled_all_reading_times, jitter=jitter)
-    print("1")
-    print(type(test_means))
-    print(type(test_vars))
-    print(test_means)
     # Un-normalise means and covariances back to metres
     test_predictions = iht(test_means)
     print("IHTd")
