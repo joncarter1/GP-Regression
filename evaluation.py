@@ -3,7 +3,7 @@ from data import reading_times, scaled_reading_times, tide_heights, tide_std, sc
 import numpy as np
 import torch
 from GPy2.models import GaussianProcess
-from GPy2.utils import gaussian_nll
+from GPy2.utils import gaussian_nll, dev, cpu
 import matplotlib.pyplot as plt
 
 
@@ -23,7 +23,7 @@ def compute_gp_performance(gp, jitter=0):
     print("covar")
     # Compute NLL for all test points and missing points
     test_nll = gaussian_nll(torch.tensor(true_tide_heights), torch.tensor(test_predictions),
-                               torch.tensor(test_covariance), jitter=jitter) / len(true_tide_heights)
+                               torch.tensor(test_covariance, device=dev), jitter=jitter) / len(true_tide_heights)
     print("2")
     # Computing RMSEs in metres
     test_rmse = np.mean((true_tide_heights - test_predictions.cpu().numpy()) ** 2) ** 0.5
