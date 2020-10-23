@@ -36,9 +36,6 @@ def gaussian_nll(y, mu, covar_matrix, dims=1, jitter=1e-4, verbose=False):
     """
     y, mu = expand_1d([y, mu])
     covar_matrix += (torch.tensor(jitter) ** 2) * torch.eye(*covar_matrix.shape)
-    condition_number = np.linalg.cond(covar_matrix.detach().cpu().numpy())
-    if condition_number > 1e10:
-        print(f"Condition number : {condition_number}")
     L_covar = torch.cholesky(covar_matrix)
     inv_covar = torch.cholesky_inverse(L_covar)
     alpha = torch.mm(inv_covar, y - mu)

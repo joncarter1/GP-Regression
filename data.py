@@ -5,7 +5,8 @@ import torch
 import numpy as np
 weather_data = pd.read_csv('sotonmet.txt')
 cols = weather_data.columns
-import GPy2.utils
+if torch.cuda.is_available():
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
 def date_conversion(date_string):
     """Convert Sotonmet string timestamp to Datetime object."""

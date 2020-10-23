@@ -83,7 +83,6 @@ def gp_inference(covar_kernel, epochs=250, sigma_n=0.1, jitter=0, lr=1e-3):
                          sample_means + (i + 1) * sigma_vector,
                          alpha=alphas[i], color="tab:blue", label=fr"GP Uncertainty - ${i + 1}\sigma$")
 
-    print("HEREE")
     plt.ylabel("Tide height / m", fontsize=14)
     plt.xlabel("Timestamp / days", fontsize=14)
     bottom, top = plt.ylim()
@@ -93,6 +92,4 @@ def gp_inference(covar_kernel, epochs=250, sigma_n=0.1, jitter=0, lr=1e-3):
     plt.plot(all_reading_times, true_tide_heights, label="Ground truth", color="green")
     plt.legend(fontsize=11, ncol=2)
     plt.tight_layout()
-    plt.show()
-
     return gp

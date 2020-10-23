@@ -48,7 +48,7 @@ class GaussianProcess:
     def compute_marginal_nll(self, verbose=False):
         """Compute negative log-likelihood of data under zero-mean multivariate Gaussian."""
         covar_matrix = self.compute_covariance_matrix(self.training_data)
-        return gaussian_nll(self.labels, torch.tensor(0, device=dev), covar_matrix, verbose)
+        return gaussian_nll(self.labels, torch.tensor(0), covar_matrix, verbose)
 
     def optimise_hyperparams(self, epochs=10, lr=None):
         """Optimise hyper-parameters via gradient descent of the marginal likelihood.
