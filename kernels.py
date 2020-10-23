@@ -2,46 +2,53 @@ import numpy as np
 import torch
 from utils import expand_1d, compute_distance_matrix
 
+
 class CovarianceKernel:
-    def __init__(self, hyperparams, covariance_function=None):
+    """Co-variance kernel used for Gaussian Processes."""
+    def __init__(self, hyperparams, covariance_function=lambda *x: NotImplementedError):
         """
         Args:
             hyperparams: Kernel hyper-params (either a list or PyTorch tensor)
             covariance_function: Kernel co-variance function (if composite i.e. not already specified by sub-class)
         """
-        if not isinstance(hyperparams, list):
-            self.hyperparams = [hyperparams]
-        else:
-            self.hyperparams = hyperparams
-
-        if covariance_function is None:
-            self.covariance_function = lambda x: NotImplementedError
-        else:
-            self.covariance_function = covariance_function
+        self.hyperparams = hyperparams if isinstance(hyperparams, list) else [hyperparams]
+        self.covariance_function = covariance_function
 
     def __call__(self, x1: torch.Tensor, x2: torch.Tensor):
-        """Call to kernel function
-        """
+        """Call to kernel function, returns covariance matrix between inputs x1 and x2"""
         x1, x2 = expand_1d([x1, x2])
         return self.covariance_function(x1, x2)
 
     def __repr__(self):
+        """Represent co-variance function with hyper-parameters"""
         print_str = ""
         for kernel_params in self.hyperparams:
             print_str += str(kernel_params.exp())
         return print_str
 
     def __add__(self, other_kernel):
-        """Kernel addition"""
+        """Kernel addition
+
+        Returns:
+            CovarianceKernel: With concatenated hyper-parameters and combined (additive) covariance function.
+        """
         combined_hyperparams = self.hyperparams + other_kernel.hyperparams
-        new_covariance_function = lambda *x: self.covariance_function(*x) + other_kernel.covariance_function(*x)
-        return CovarianceKernel(combined_hyperparams, new_covariance_function)
+
+        def combined_covariance_function(x1, x2):
+            return self.covariance_function(x1, x2) + other_kernel.covariance_function(x1, x2)
+        return CovarianceKernel(combined_hyperparams, combined_covariance_function)
 
     def __mul__(self, other_kernel):
-        """Kernel multiplication"""
+        """Kernel multiplication.
+
+        Returns:
+            CovarianceKernel: With concatenated hyper-parameters and combined (multiplicative) covariance function.
+        """
         combined_hyperparams = self.hyperparams + other_kernel.hyperparams
-        new_covariance_function = lambda *x: self(*x) * other_kernel(*x)
-        return CovarianceKernel(combined_hyperparams, new_covariance_function)
+
+        def combined_covariance_function(x1, x2):
+            return self.covariance_function(x1, x2) * other_kernel.covariance_function(x1, x2)
+        return CovarianceKernel(combined_hyperparams, combined_covariance_function)
 
 
 pi = torch.tensor(np.pi)
@@ -54,8 +61,8 @@ class IsoSQEKernel(CovarianceKernel):
         def iso_sqe_covariance(x1, x2):
             l_scale, v_scale = self.hyperparams[0].exp()  # Un-packing (log) hyper-parameters
             squared_distance_matrix = compute_distance_matrix(x1, x2)
-            output = (v_scale ** 2) * torch.exp(-squared_distance_matrix / (2 * l_scale ** 2))
-            return torch.clamp(output, 0, float(v_scale**2))
+            return (v_scale ** 2) * torch.exp(-squared_distance_matrix / (2 * l_scale ** 2))
+
         self.covariance_function = iso_sqe_covariance
 
 
@@ -66,13 +73,13 @@ class PeriodicKernel(CovarianceKernel):
         def periodic_covariance(x1, x2):
             l_scale, v_scale, period = self.hyperparams[0].exp()  # Un-packing (log) hyper-parameters
             distance_matrix = compute_distance_matrix(x1, x2)**0.5
-            output = (v_scale ** 2) * torch.exp(-2 * (torch.sin((pi / period) * distance_matrix)**2 / (l_scale ** 2)))
-            return torch.clamp(output, 0, float(v_scale**2))
+            return (v_scale ** 2) * torch.exp(-2 * (torch.sin((pi / period) * distance_matrix)**2 / (l_scale ** 2)))
 
         self.covariance_function = periodic_covariance
 
 
 class Matern12Kernel(CovarianceKernel):
+    """Matern co-variance function for nu = 1/2"""
     def __init__(self, hyperparams):
         super().__init__(hyperparams)
 
@@ -86,11 +93,11 @@ class Matern12Kernel(CovarianceKernel):
 
 
 class Matern32Kernel(CovarianceKernel):
+    """Matern co-variance function for nu = 3/2"""
     def __init__(self, hyperparams):
         super().__init__(hyperparams)
 
         def matern_32_covariance(x1, x2):
-            """Matern co-variance function for nu = 3/2"""
             l_scale, v_scale = self.hyperparams[0].exp()
             distance_matrix = compute_distance_matrix(x1, x2)**0.5
             return (v_scale**2) * (1 + (3**0.5)*distance_matrix/l_scale) * torch.exp(-(3**0.5)*distance_matrix/l_scale)

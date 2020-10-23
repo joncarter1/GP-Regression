@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy import shape, transpose, array, matrix
 from kernels import IsoSQEKernel, PeriodicKernel, Matern12Kernel, Matern32Kernel
-from gps import GaussianProcess
+from models import GaussianProcess
 import pandas as pd
 import torch
 

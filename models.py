@@ -3,7 +3,8 @@ from numpy import shape, transpose, array, matrix
 import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
-from utils import expand_1d
+from utils import gaussian_nll
+
 
 class GaussianProcess:
     def __init__(self,
@@ -22,16 +23,15 @@ class GaussianProcess:
         self.log_sigma = torch.tensor(np.log(sigma_n), requires_grad=learn_noise)
         self.trainable_parameters = self.covar_kernel.hyperparams+[self.log_sigma]
         self.lr = lr  # Learning rate for marginal likelihood gradient descent
-        self.updated = False  # Up to date inverse co-variance stored?
-        self.ill_conditioned = False  # Co-variance matrix condition number high?
+        self.ill_conditioned = False
 
     @property
     def sigma(self):
         return self.log_sigma.exp()
 
-    def compute_covariance_matrix(self, training_data, verbose=False):
+    def compute_covariance_matrix(self, training_data, jitter=0, verbose=False):
         covar_matrix = self.covar_kernel(training_data, training_data)
-        noise_eye = (self.log_sigma.exp()**2)*torch.eye(len(training_data))
+        noise_eye = (self.sigma**2 + jitter ** 2)*torch.eye(*covar_matrix.shape)
         covar_matrix += noise_eye
         condition_number = np.linalg.cond(covar_matrix.detach().numpy())
         self.ill_conditioned = condition_number > 1e8
@@ -39,60 +39,34 @@ class GaussianProcess:
             print(f"Condition number : {condition_number}")
         return covar_matrix
 
-    @staticmethod
-    def unstable_gaussian_nll(y, mu, covar_matrix, dims=1, verbose=False):
-        """Non-Cholesky negative log-likelihood method kept for testing."""
-        inv_cov = covar_matrix.inverse()
-        data_fit_term = -0.5 * torch.mm((y - mu).T, torch.mm(inv_cov, y - mu))
-        _, log_det = covar_matrix.slogdet()
-        complexity_term = -0.5 * log_det
-        if verbose:
-            print("Data fit : ", data_fit_term)
-            print("Complexity : ", complexity_term)
-        return -1 * (data_fit_term + complexity_term - (dims / 2) * np.log(2 * np.pi))
-
-    @staticmethod
-    def gaussian_nll(y, mu, covar_matrix, dims=1, jitter=1e-4, verbose=False):
-        """Compute -ve log-likelihood of data under a multivariate Gaussian."""
-        y, mu = expand_1d([y, mu])
-        covar_matrix += (jitter**2)*torch.eye(*covar_matrix.shape)
-        condition_number = np.linalg.cond(covar_matrix.detach().numpy())
-        if condition_number > 1e10:
-            print(f"Condition number : {condition_number}")
-        L_covar = torch.cholesky(covar_matrix)
-        inv_covar = torch.cholesky_inverse(L_covar)
-        alpha = torch.mm(inv_covar, y-mu)
-        data_fit_term = -0.5 * torch.mm((y - mu).T, alpha)
-        complexity_term = -torch.sum(torch.diagonal(L_covar).log())
-        if verbose:
-            print("Data fit : ", data_fit_term)
-            print("Complexity : ", complexity_term)
-        return -1 * (data_fit_term + complexity_term - (dims/2)*np.log(2*np.pi))
-
     def compute_test_nll(self, inputs, labels):
         """Compute negative log-likelihood of a test set."""
         mu, covar_matrix = self.compute_predictive_means_vars(inputs, to_np=False)
-        return self.gaussian_nll(labels, mu, covar_matrix)
+        return gaussian_nll(labels, mu, covar_matrix)
 
     def compute_marginal_nll(self, verbose=False):
-        """Compute negative log-likelihood of data under mv Gaussian."""
+        """Compute negative log-likelihood of data under zero-mean multivariate Gaussian."""
         covar_matrix = self.compute_covariance_matrix(self.training_data)
-        return self.gaussian_nll(self.labels, torch.tensor(0), covar_matrix)
+        return gaussian_nll(self.labels, torch.tensor(0), covar_matrix, verbose)
 
     def optimise_hyperparams(self, epochs=10, lr=None):
-        """Optimise hyper-parameters via gradient descent of the marginal likelihood."""
+        """Optimise hyper-parameters via gradient descent of the marginal likelihood.
+
+        Args:
+            epochs: No. epochs to optimise for.
+            lr: Specified learning rate, otherwise stored value use.
+        """
         print(f"Old hyper-parameters: {self.covar_kernel}")
         if self.learn_noise:
             print(f"Old noise std : {self.sigma}")
         loss = self.compute_marginal_nll(verbose=False)
-        print(f"Negative marginal likelihood : {loss}")
         lr = self.lr if lr is None else lr
         optimizer = torch.optim.Adam(self.trainable_parameters, lr=lr)
-        for _ in tqdm(range(epochs)):
+        for epoch in tqdm(range(epochs)):
             optimizer.zero_grad()
             loss = self.compute_marginal_nll(verbose=False)
             if self.ill_conditioned:
-                print("Aborting hyper-parameter optimisation")
+                print(f"Aborting hyper-parameter optimisation at epoch {epoch}")
                 break
             loss.backward()
             optimizer.step()
@@ -102,13 +76,20 @@ class GaussianProcess:
         print(f"Negative log-likelihood : {loss}")
 
     def compute_predictive_means_vars(self, test_data, training_data=None, labels=None, jitter=1e-4, to_np=True):
-        """Compute predictive mean and variance over a set of test points."""
+        """Compute predictive mean and variance over a set of test points.
+
+        Args:
+            test_data: Tensor of test points in time series.
+            training_data: Used to condition GP, uses stored data if none provided.
+            labels: Used to condition GP, uses stored labels if none provided.
+            jitter: Noise added to co-variance matrix diagonal for stability.
+            to_np: If casting result to Numpy array.
+        """
         if training_data is None:
             training_data = self.training_data  # Use all provided (non-causal)
         if labels is None:
             labels = self.labels
-        covar_matrix = self.compute_covariance_matrix(training_data)
-        covar_matrix += (jitter ** 2) * torch.eye(*covar_matrix.shape)
+        covar_matrix = self.compute_covariance_matrix(training_data, jitter)
         condition_number = np.linalg.cond(covar_matrix.detach().numpy())
         if condition_number > 1e10:
             print(f"Condition number : {condition_number}")
@@ -129,16 +110,28 @@ class LookaheadGP(GaussianProcess):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def compute_lookahead_predictive_means_vars(self, test_data):
+    def compute_lookahead_predictive_means_vars(self, test_data, lookahead, jitter=1e-4, to_np=True):
         """Compute lookahead predictive mean and variance at time T.
             Any training data from future time points is discarded to perform inference
 
         Args:
+            lookahead: Lookahead measured in units of time
             test_data: Tensor of test points in time series.
+            jitter: Noise added to co-variance matrix diagonal for stability.
+            to_np: If casting result to Numpy array.
         """
-        T_start = torch.min(test_data)
-        causal_training_data = self.training_data[self.training_data < T_start]
-        causal_labels = self.labels[self.training_data < T_start]
-        return self.compute_predictive_means_vars(test_data, causal_training_data, causal_labels)
 
+        mus, sigmas = torch.tensor([]), torch.tensor([])
+        for t in test_data:
+            lookahead_training_data = self.training_data[self.training_data <= t - lookahead]
+            lookahead_labels = self.labels[self.training_data <= t - lookahead]
+            mu, sigma = self.compute_predictive_means_vars(t, lookahead_training_data, lookahead_labels,
+                                                           jitter=jitter, to_np=False)
+            mus = torch.cat([mus, mu])
+            sigmas = torch.cat([sigmas, sigma])
+
+        mus, sigmas = mus.detach(), sigmas.detach()
+        if not to_np:
+            return mus, sigmas
+        return mus.numpy(), sigmas.numpy()
 
