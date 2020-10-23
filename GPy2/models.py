@@ -34,7 +34,7 @@ class GaussianProcess:
         covar_matrix = self.covar_kernel(training_data, training_data)
         noise_eye = (self.sigma**2 + jitter ** 2)*torch.eye(*covar_matrix.shape)
         covar_matrix += noise_eye
-        condition_number = np.linalg.cond(covar_matrix.detach().numpy())
+        condition_number = np.linalg.cond(covar_matrix.detach().cpu().numpy())
         self.ill_conditioned = condition_number > 1e8
         if verbose or self.ill_conditioned:
             print(f"Condition number : {condition_number}")
@@ -92,7 +92,7 @@ class GaussianProcess:
 
         if training_data.nelement():
             covar_matrix = self.compute_covariance_matrix(training_data, jitter)
-            condition_number = np.linalg.cond(covar_matrix.detach().numpy())
+            condition_number = np.linalg.cond(covar_matrix.detach().cpu().numpy())
             if condition_number > 1e10:
                 print(f"Condition number : {condition_number}")
             L_covar = torch.cholesky(covar_matrix)
@@ -108,7 +108,7 @@ class GaussianProcess:
         var_array = auto_cov - product2
         if not to_np:
             return mu_array, var_array
-        return mu_array.detach().numpy(), var_array.detach().numpy()
+        return mu_array.detach().cpu().numpy(), var_array.detach().cpu().numpy()
 
 
 class LookaheadGP(GaussianProcess):
@@ -138,5 +138,5 @@ class LookaheadGP(GaussianProcess):
         mus, sigmas = mus.detach(), sigmas.detach()
         if not to_np:
             return mus, sigmas
-        return mus.numpy(), sigmas.numpy()
+        return mus.cpu().numpy(), sigmas.cpu().numpy()
 

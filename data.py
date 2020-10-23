@@ -39,7 +39,7 @@ tide_heights += data_noise  # Adding quantisation noise to readings to improve s
 
 tide_std, tide_mean = torch.std_mean(tide_heights)
 scaled_tide_heights = (tide_heights-tide_mean)/tide_std
-scaled_true_heights = (true_tide_heights-tide_mean.numpy())/tide_std.numpy()  # Scale ground truth for ref. plotting
+scaled_true_heights = (true_tide_heights-tide_mean.cpu().numpy())/tide_std.cpu().numpy()  # Scale ground truth for ref. plotting
 
 
 def column_plotter(dataframe, column_indices, axes, color="tab:red"):
