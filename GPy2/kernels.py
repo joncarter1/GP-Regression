@@ -69,6 +69,7 @@ class IsoSQEKernel(CovarianceKernel):
         def iso_sqe_covariance(x1, x2):
             l_scale, v_scale = self.hyperparams[0].exp()  # Un-packing (log) hyper-parameters
             squared_distance_matrix = compute_distance_matrix(x1, x2)
+            print(l_scale.device, v_scale.device, squared_distance_matrix.device)
             return (v_scale ** 2) * torch.exp(-squared_distance_matrix / (2 * l_scale ** 2))
 
         self.covariance_function = iso_sqe_covariance
@@ -108,7 +109,6 @@ class Matern32Kernel(CovarianceKernel):
         def matern_32_covariance(x1, x2):
             l_scale, v_scale = self.hyperparams[0].exp()
             distance_matrix = compute_distance_matrix(x1, x2)**0.5
-            print(l_scale.device, v_scale.device, distance_matrix.device)
             return (v_scale**2) * (1 + (3**0.5)*distance_matrix/l_scale) * torch.exp(-(3**0.5)*distance_matrix/l_scale)
 
         self.covariance_function = matern_32_covariance
