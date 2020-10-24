@@ -8,6 +8,7 @@ cols = weather_data.columns
 if torch.cuda.is_available():
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
+
 def date_conversion(date_string):
     """Convert Sotonmet string timestamp to Datetime object."""
     return datetime.datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S')
